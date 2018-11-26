@@ -1,16 +1,15 @@
 package execution.tasks
 
+import datastructures.JobSpec.{KeyVal, MapFunc}
 import datastructures.{Dataset, Row}
-import datastructures.JobSpec.{KeyVal, Map, MapFunc, MapReduce}
-import execution.workers.Storage
-import org.scalamock.scalatest.MockFactory
+import execution.workers.storage.MapWorkerStorage
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
-class MapTaskTest extends WordSpec with Matchers with MockFactory {
+class MapTaskTest extends WordSpec with Matchers {
 
   val mapFunc: MapFunc =
     users => users.map { user =>
@@ -20,16 +19,15 @@ class MapTaskTest extends WordSpec with Matchers with MockFactory {
       )
     }
 
-  "map task should read input file, execute map function, partition results and forward to local storage" in {
-    val storage = new Storage()
+  "read input file, execute map function, partition results and forward to local storage" in {
+    implicit val storage = new MapWorkerStorage()
     val task = new MapTask(
       "src/test/resources/data/users/part-001.csv",
       mapFunc = mapFunc,
-      numberOfOutputPartitions = 2,
-      outputStorage = storage
+      numberOfOutputPartitions = 2
     )
 
-    val outputFiles = Await.result(task.execute(), 3 seconds)
+    val outputFiles = Await.result(task.execute(storage), 3 seconds)
     outputFiles.foreach(println)
     outputFiles.size shouldEqual 2
 

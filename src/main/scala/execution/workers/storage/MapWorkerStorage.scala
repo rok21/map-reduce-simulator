@@ -1,8 +1,7 @@
-package execution.workers
+package execution.workers.storage
+
 import java.util.UUID
 
-import akka.actor.Actor
-import execution.workers.MapWorkerStorageSupport.ReadFile
 import io.DiskIOSupport
 
 import scala.collection.mutable
@@ -18,19 +17,10 @@ The files are stored on the disk, but the mapping is local to map worker's actor
 making it necessary for the map worker to be up in order to access its intermediate files.
 
  */
-trait MapWorkerStorageSupport extends Actor {
-
-  val storage = new Storage()
-
-  def handleFileAccess: Receive = {
-    case ReadFile(fileName) => sender() ! storage.read(fileName)
-  }
-}
-
-class Storage extends DiskIOSupport {
+class MapWorkerStorage extends OutputStorage with DiskIOSupport {
   private val fileMap = mutable.Map[String, String]()
 
-  def write(fileName: String, content: Seq[String]) = {
+  override def write(fileName: String, content: Seq[String]) = {
     val physicalFileName = s"intermediate/${UUID.randomUUID()}"
     fileMap.update(fileName, physicalFileName)
     writeFile(physicalFileName, content)
@@ -38,8 +28,4 @@ class Storage extends DiskIOSupport {
 
   def read(fileName: String) =
     readFile(fileMap(fileName))
-}
-
-object MapWorkerStorageSupport {
-  case class ReadFile(fileName: String)
 }

@@ -1,7 +1,5 @@
 package datastructures
 
-import datastructures.JobSpec.GroupedKeyVal
-
 object JobSpec {
 
   case class MapReduce(

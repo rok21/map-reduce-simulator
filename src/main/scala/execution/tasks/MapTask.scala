@@ -1,20 +1,19 @@
 package execution.tasks
 
-import datastructures.{Dataset, JobSpec, Row}
 import datastructures.JobSpec.{KeyVal, MapFunc}
+import datastructures.{Dataset, JobSpec, Row}
+import execution.workers.storage.OutputStorage
 import io.DiskIOSupport
-import execution.workers.Storage
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class MapTask(
-  inputFileUri: String,
+  inputFileName: String,
   mapFunc: MapFunc,
-  numberOfOutputPartitions: Int,
-  outputStorage: Storage)(implicit ec: ExecutionContext) extends DiskIOSupport {
+  numberOfOutputPartitions: Int) extends Task with DiskIOSupport {
 
-  def execute() = Future {
-    val dataset = Dataset.fromCsv(readFile(inputFileUri))
+  override def execute(outputStorage: OutputStorage)(implicit ec: ExecutionContext): Future[Seq[String]] = Future {
+    val dataset = Dataset.fromCsv(readFile(inputFileName))
     val mapped: Seq[JobSpec.KeyVal] = mapFunc(dataset)
     val partitioned = mapped
         .groupBy { case KeyVal(key, value) =>
@@ -23,7 +22,7 @@ class MapTask(
 
     val fileNames = partitioned.map {
       case (partition, pairs) =>
-        val fileName = s"intermediate-${inputFileUri.hashCode()}-$partition.csv"
+        val fileName = s"intermediate-${inputFileName.hashCode()}-$partition.csv"
         val intermediateDataset = new Dataset(
           pairs.map {
             case KeyVal(key, row) => row.merge(Row.intermediateKeyColumnName, key)
