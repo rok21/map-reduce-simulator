@@ -1,37 +1,91 @@
 package execution.workers
 
+import akka.pattern.ask
 import akka.actor.{ActorSystem, Props}
+import akka.testkit.{ImplicitSender, TestKit, TestKitBase}
+import akka.util.Timeout
 import datastructures.JobSpec.{KeyVal, MapFunc}
 import execution.tasks.MapTask
-import org.scalatest.{Matchers, WordSpec}
+import execution.workers.WorkerActor.{Idle, TaskCompleted}
+import org.scalatest.{FunSuiteLike, Matchers, WordSpec}
 
-class MapWorkerTest extends WordSpec with Matchers {
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
 
-  val sys = ActorSystem("MapWorkerTest")
+class MapWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSuiteLike with Matchers with ImplicitSender {
+  implicit val ec = system.dispatcher
+  implicit val askTimeout = new Timeout(10 seconds)
 
-  val actor = sys.actorOf(Props(new MapWorker))
-  implicit val ec = sys.dispatcher
+  val quickTask = new MapTask(
+    "src/test/resources/data/users/part-001.csv",
+    mapFunc = users => users.map { user =>
+      KeyVal(
+        key = user("country"),
+        value = user
+      )
+    },
+    numberOfOutputPartitions = 1
+  )
 
-  val mapFunc: MapFunc =
-    users => users.map { user =>
+  test("execute a task, send back file names and handle file access") {
+    val worker = system.actorOf(Props(new MapWorker))
+    worker ! MapWorker.ExecuteTask(quickTask)
+    val intermediateFile = receiveOne(1 second) match {
+      case TaskCompleted(fileNames) =>
+        fileNames.size shouldEqual 1
+        fileNames.head
+      case x => sys.error(s"Unexpected response from map worker: $x")
+    }
+
+    worker ! MapWorker.GetFile(intermediateFile)
+    val csvRows = receiveOne(2 seconds) match {
+        case rows: Seq[String] => rows
+        case x => sys.error(s"Unexpected response from map worker: $x")
+    }
+    csvRows.size shouldEqual 7 // 6 users + 1 header row
+  }
+
+  val slowTask = new MapTask(
+    "src/test/resources/data/users/part-001.csv",
+    mapFunc = users => users.map { user =>
       Thread.sleep(100)
       KeyVal(
         key = user("country"),
         value = user
       )
-    }
-
-  val task = new MapTask(
-    "src/test/resources/data/users/part-001.csv",
-    mapFunc = mapFunc,
-    numberOfOutputPartitions = 2
+    },
+    numberOfOutputPartitions = 1
   )
 
-  "execute a task and send back file names" in {
-
-      ???
-    //task.
+  test("respond with correct status throughout the execution cycle") {
+    val worker = system.actorOf(Props(new MapWorker))
+    worker ! WorkerActor.GetState
+    expectMsg(WorkerActor.Idle)
+    worker ! MapWorker.ExecuteTask(slowTask)
+    worker ! WorkerActor.GetState
+    expectMsg(WorkerActor.Busy)
+    receiveOne(2 seconds).isInstanceOf[TaskCompleted] shouldEqual true
+    worker ! WorkerActor.GetState
+    expectMsg(WorkerActor.Idle)
   }
 
+  test("provide file system access while busy") {
+    val worker = system.actorOf(Props(new MapWorker))
+    worker ! MapWorker.ExecuteTask(quickTask)
+
+    val intermediateFile = receiveOne(1 second) match {
+      case TaskCompleted(fileNames) =>
+        fileNames.size shouldEqual 1
+        fileNames.head
+      case x => sys.error(s"Unexpected response from map worker: $x")
+    }
+
+    worker ! MapWorker.ExecuteTask(slowTask)
+    worker ! WorkerActor.GetState
+    expectMsg(WorkerActor.Busy)
+    worker ! MapWorker.GetFile(intermediateFile)
+    receiveOne(1 second).isInstanceOf[Seq[String]] shouldEqual true
+
+  }
 
 }

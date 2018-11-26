@@ -15,7 +15,7 @@ trait WorkerActor extends Actor {
     case GetState => sender() ! currentState
   }
 
-
+  def calcElapsed(start: Long) = System.currentTimeMillis() - start
 }
 object WorkerActor {
 

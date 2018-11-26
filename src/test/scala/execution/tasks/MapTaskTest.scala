@@ -28,7 +28,6 @@ class MapTaskTest extends WordSpec with Matchers {
     )
 
     val outputFiles = Await.result(task.execute(storage), 3 seconds)
-    outputFiles.foreach(println)
     outputFiles.size shouldEqual 2
 
     val file0 = storage.read(outputFiles.head)
