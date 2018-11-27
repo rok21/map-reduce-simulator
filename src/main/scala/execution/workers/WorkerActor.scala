@@ -11,8 +11,24 @@ trait WorkerActor extends Actor {
 
   var currentState: WorkerState = Idle
 
+  def busy: Receive
+
+  def idle: Receive
+
+  override def receive: Receive = idle
+
   def handleStateCheck: Receive = {
     case GetState => sender() ! currentState
+  }
+
+  def becomeBusy = {
+    currentState = Busy
+    context.become(busy)
+  }
+
+  def becomeIdle = {
+    currentState = Idle
+    context.become(idle)
   }
 
   def calcElapsed(start: Long) = System.currentTimeMillis() - start

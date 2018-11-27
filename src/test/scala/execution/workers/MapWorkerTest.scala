@@ -1,15 +1,13 @@
 package execution.workers
 
-import akka.pattern.ask
 import akka.actor.{ActorSystem, Props}
-import akka.testkit.{ImplicitSender, TestKit, TestKitBase}
+import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
-import datastructures.JobSpec.{KeyVal, MapFunc}
+import datastructures.JobSpec.KeyVal
 import execution.tasks.MapTask
-import execution.workers.WorkerActor.{Idle, TaskCompleted}
-import org.scalatest.{FunSuiteLike, Matchers, WordSpec}
+import execution.workers.WorkerActor.TaskCompleted
+import org.scalatest.{FunSuiteLike, Matchers}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
 class MapWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSuiteLike with Matchers with ImplicitSender {
@@ -85,7 +83,5 @@ class MapWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSuiteL
     expectMsg(WorkerActor.Busy)
     worker ! MapWorker.GetFile(intermediateFile)
     receiveOne(1 second).isInstanceOf[Seq[String]] shouldEqual true
-
   }
-
 }

@@ -17,10 +17,10 @@ The files are stored on the disk, but the mapping is local to map worker's actor
 making it necessary for the map worker to be up in order to access its intermediate files.
 
  */
-class MapWorkerStorage extends OutputStorage with DiskIOSupport {
+class MapWorkerStorage extends DiskIOSupport {
   private val fileMap = mutable.Map[String, String]()
 
-  override def write(fileName: String, content: Seq[String]) = {
+  def write(fileName: String, content: Seq[String]) = {
     val physicalFileName = s"intermediate/${UUID.randomUUID()}"
     fileMap.update(fileName, physicalFileName)
     writeFile(physicalFileName, content)

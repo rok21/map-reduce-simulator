@@ -11,3 +11,7 @@ class Master(config: SimulatorConfig, mapWorkers: Seq[ActorRef], reduceWorkers: 
 
 
 }
+
+object Master {
+  case class RemoteFileAddress(node: ActorRef, fileName: String)
+}

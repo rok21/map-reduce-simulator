@@ -9,18 +9,17 @@ import execution.workers.storage.MapWorkerStorage
 class MapWorker extends WorkerActor {
   import execution.workers.MapWorker._
 
-  override def receive: Receive = idle
-
   val storage = new MapWorkerStorage()
+
   def busy: Receive = handleStateCheck orElse handleFileAccess
 
   def idle: Receive = handleWork orElse busy
 
   def handleWork : Receive = {
     case ExecuteTask(mapTask) =>
+      becomeBusy
       val start = System.currentTimeMillis()
       val future = mapTask.execute(storage)
-      becomeBusy
       future.foreach { files =>
         println(s"Map task completed in ${calcElapsed(start)} ms. Intermediate files produced: ${files.mkString(",")}")
         becomeIdle
@@ -31,16 +30,6 @@ class MapWorker extends WorkerActor {
   def handleFileAccess: Receive = {
     case GetFile(fileName) =>
       sender() ! storage.read(fileName)
-  }
-
-  private def becomeBusy = {
-    currentState = Busy
-    context.become(busy)
-  }
-
-  private def becomeIdle = {
-    currentState = Idle
-    context.become(idle)
   }
 }
 

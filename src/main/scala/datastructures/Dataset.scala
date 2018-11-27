@@ -1,6 +1,6 @@
 package datastructures
 
-import datastructures.JobSpec.KeyVal
+import datastructures.JobSpec.{DataForKey, KeyVal}
 
 class Dataset(val data: Seq[Row]) {
 
@@ -15,6 +15,14 @@ class Dataset(val data: Seq[Row]) {
   def map(func: Row => KeyVal): Seq[KeyVal] = data.map(func)
 
   def first = data.headOption
+
+  def sortAndGroupByIntermediateKey: Seq[DataForKey] =
+    data.sortBy(row => row(Row.intermediateKeyColumnName))
+        .groupBy(row => row(Row.intermediateKeyColumnName))
+        .map {
+          case (key, rows) => DataForKey(key, new Dataset(rows))
+        }
+        .toSeq
 }
 
 object Dataset {

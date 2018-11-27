@@ -2,7 +2,7 @@ package execution.tasks
 
 import datastructures.JobSpec.{KeyVal, MapFunc}
 import datastructures.{Dataset, JobSpec, Row}
-import execution.workers.storage.OutputStorage
+import execution.workers.storage.MapWorkerStorage
 import io.DiskIOSupport
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -10,13 +10,13 @@ import scala.concurrent.{ExecutionContext, Future}
 class MapTask(
   inputFileName: String,
   mapFunc: MapFunc,
-  numberOfOutputPartitions: Int) extends Task with DiskIOSupport {
+  numberOfOutputPartitions: Int) extends DiskIOSupport {
 
-  override def execute(outputStorage: OutputStorage)(implicit ec: ExecutionContext): Future[Seq[String]] = Future {
+  def execute(outputStorage: MapWorkerStorage)(implicit ec: ExecutionContext): Future[Seq[String]] = Future {
     val dataset = Dataset.fromCsv(readFile(inputFileName))
     val mapped: Seq[JobSpec.KeyVal] = mapFunc(dataset)
     val partitioned = mapped
-        .groupBy { case KeyVal(key, value) =>
+        .groupBy { case KeyVal(key, _) =>
           key.hashCode() % numberOfOutputPartitions
         }
 
