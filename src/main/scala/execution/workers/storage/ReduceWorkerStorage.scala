@@ -23,7 +23,7 @@ trait ReduceWorkerStorage extends DiskIOSupport {
     (remoteFileAddress.node ? MapWorker.GetFile(remoteFileAddress.fileName)).mapTo[Seq[String]]
 
   def getFileName(outputDir: String, partitionNumber: Int) = {
-    val partitionSuffix = (1000 + partitionNumber).toString.tail
-    s"$outputDir/part-$partitionNumber"
+    val partitionSuffix: String = (1000 + partitionNumber + 1).toString.tail
+    s"$outputDir/part-$partitionSuffix.csv"
   }
 }

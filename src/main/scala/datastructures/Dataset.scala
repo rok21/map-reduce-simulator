@@ -4,6 +4,18 @@ import datastructures.JobSpec.{DataForKey, KeyVal}
 
 class Dataset(val data: Seq[Row]) {
 
+  def sortAndGroupByIntermediateKey: Seq[DataForKey] =
+    data.groupBy(row => row(Row.intermediateKeyColumnName))
+        .map {
+          case (key, intermediateRows) =>
+            //remove intermediate key from the dataset
+            val rows = intermediateRows.map(ir => Row(ir.data - Row.intermediateKeyColumnName))
+            (key, new Dataset(rows))
+        }
+        .toSeq.sortBy { case (key, _) => key }
+
+  // syntax sugar
+
   def select(filterFunc: Row => Boolean) = new Dataset(
     data.filter(filterFunc)
   )
@@ -16,16 +28,17 @@ class Dataset(val data: Seq[Row]) {
 
   def first = data.headOption
 
-  def sortAndGroupByIntermediateKey: Seq[DataForKey] =
-    data.sortBy(row => row(Row.intermediateKeyColumnName))
-        .groupBy(row => row(Row.intermediateKeyColumnName))
-        .map {
-          case (key, rows) => DataForKey(key, new Dataset(rows))
-        }
-        .toSeq
+  def count = data.size
 }
 
 object Dataset {
+
+  def apply(a: (String, String)*) = new Dataset(Seq(Row(a:_*)))
+
+  def merge(datasets: Seq[Dataset]) = new Dataset(
+    datasets.flatMap(_.data)
+  )
+
   def fromCsv(contentRows: Seq[String]): Dataset = contentRows.headOption match {
     case Some(headerRow) =>
       val headers = headerRow.split(",")

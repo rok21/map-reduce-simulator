@@ -12,11 +12,12 @@ object JobSpec {
 
   type MapFunc = Dataset => Seq[KeyVal]
 
+  type DataForKey = (String, Dataset)
+
   type ReduceFunc = DataForKey => Dataset
 
   case class Map(inputDir: String, mapFunc: MapFunc)
 
-  case class DataForKey(key: String, values: Dataset)
 
   case class Reduce(reduceFunc: ReduceFunc)
 }

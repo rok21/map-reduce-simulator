@@ -1,5 +1,6 @@
 package execution.workers
 
+import akka.pattern.pipe
 import datastructures.Dataset
 import datastructures.JobSpec.ReduceFunc
 import execution.Master.RemoteFileAddress
@@ -22,9 +23,10 @@ class ReduceWorker(partitionId: Int, outputDir: String) extends WorkerActor with
       val start = System.currentTimeMillis()
       val readFutures = remoteFiles.map(remoteRead)
       val datasetsF = for {
-        dataRows <- Future.sequence(readFutures).map(_.flatten)
-        dataset = Dataset.fromCsv(dataRows)
-        grouped = dataset.sortAndGroupByIntermediateKey
+        files <- Future.sequence(readFutures)
+        datasetsPerPartition = files.map(Dataset.fromCsv)
+        mainDataset = Dataset.merge(datasetsPerPartition)
+        grouped = mainDataset.sortAndGroupByIntermediateKey
         keyFuture = for {
           dataForKey <- grouped
           reduceTask = new ReduceTask(dataForKey, reduceFunc)
@@ -32,20 +34,16 @@ class ReduceWorker(partitionId: Int, outputDir: String) extends WorkerActor with
         partitionFuture <- Future.sequence(keyFuture)
       } yield partitionFuture
 
-      datasetsF.map { datasets =>
-        val csv = toCsv(datasets)
+      datasetsF.map { datasetsPerKey =>
+        val csv = Dataset.toCsvRows(Dataset.merge(datasetsPerKey))
         write(outputDir, partitionId, csv)
       }.map { fileWritten =>
         println(s"Reduce task completed in ${calcElapsed(start)} ms. Output file produced: $fileWritten")
         becomeIdle
-        sender() ! TaskCompleted(Seq(fileWritten))
-      }
+        TaskCompleted(Seq(fileWritten))
+      } pipeTo sender()
   }
 
-
-
-  private def toCsv(datasets: Seq[Dataset]) =
-    Dataset.toCsvRows(new Dataset(datasets.flatMap(_.data)))
 }
 
 object ReduceWorker {

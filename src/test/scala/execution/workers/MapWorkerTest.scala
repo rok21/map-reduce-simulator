@@ -2,7 +2,6 @@ package execution.workers
 
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
-import akka.util.Timeout
 import datastructures.JobSpec.KeyVal
 import execution.tasks.MapTask
 import execution.workers.WorkerActor.TaskCompleted
@@ -12,7 +11,6 @@ import scala.concurrent.duration._
 
 class MapWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSuiteLike with Matchers with ImplicitSender {
   implicit val ec = system.dispatcher
-  implicit val askTimeout = new Timeout(10 seconds)
 
   val quickTask = new MapTask(
     "src/test/resources/data/users/part-001.csv",
