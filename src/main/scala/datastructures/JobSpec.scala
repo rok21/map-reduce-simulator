@@ -3,7 +3,7 @@ package datastructures
 object JobSpec {
 
   case class MapReduce(
-    map: Map,
+    map: Seq[Map],
     reduce: Reduce,
     outputDir: String
   )

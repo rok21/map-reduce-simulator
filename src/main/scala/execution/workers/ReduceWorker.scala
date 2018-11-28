@@ -3,7 +3,7 @@ package execution.workers
 import akka.pattern.pipe
 import datastructures.Dataset
 import datastructures.JobSpec.ReduceFunc
-import execution.Master.RemoteFileAddress
+import execution.workers.Master.RemoteFileAddress
 import execution.tasks.ReduceTask
 import execution.workers.ReduceWorker.ExecuteTask
 import execution.workers.WorkerActor.TaskCompleted

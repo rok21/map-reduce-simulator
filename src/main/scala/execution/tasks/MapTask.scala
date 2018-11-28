@@ -7,7 +7,7 @@ import io.DiskIOSupport
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class MapTask(
+case class MapTask(
   inputFileName: String,
   mapFunc: MapFunc,
   numberOfOutputPartitions: Int) extends DiskIOSupport {

@@ -3,7 +3,7 @@ import datastructures.JobSpec.{DataForKey, ReduceFunc}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ReduceTask(
+case class ReduceTask(
   data: DataForKey,
   reduceFunc: ReduceFunc
 ) {

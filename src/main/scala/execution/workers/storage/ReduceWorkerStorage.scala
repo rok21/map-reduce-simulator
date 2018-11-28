@@ -4,7 +4,7 @@ import akka.pattern.ask
 import akka.actor.ActorRef
 import akka.util.Timeout
 import datastructures.Dataset
-import execution.Master.RemoteFileAddress
+import execution.workers.Master.RemoteFileAddress
 import execution.workers.MapWorker
 import io.DiskIOSupport
 

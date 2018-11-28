@@ -19,4 +19,9 @@ trait DiskIOSupport {
     contents.foreach(pw.println)
     pw.close
   }
+
+  protected def lsDir(directory: String): Seq[String] ={
+    val d = new File(directory)
+    d.list().toSeq
+  }
 }
