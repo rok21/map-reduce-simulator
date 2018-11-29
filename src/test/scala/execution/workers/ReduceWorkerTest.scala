@@ -9,8 +9,7 @@ import datastructures.{Dataset, Row}
 import execution.workers.Master.RemoteFileAddress
 import execution.tasks.ReduceTask
 import execution.workers.MapWorker.GetFile
-import execution.workers.ReduceWorker.ExecuteTask
-import execution.workers.WorkerActor.TaskCompleted
+import execution.workers.ReduceWorker.{ExecuteTask, TaskCompleted}
 import io.DiskIOSupport
 import org.scalatest.{FunSuiteLike, Matchers}
 
@@ -48,7 +47,7 @@ class ReduceWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSui
     nodeProbe1.reply(intermediateFile1)
 
     receiveOne(5 seconds) match {
-      case TaskCompleted(Seq(outputFile)) =>
+      case TaskCompleted(outputFile) =>
         outputFile shouldEqual "output/part-001.csv"
     }
 
@@ -62,43 +61,6 @@ class ReduceWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSui
     secondRow("userCount") shouldEqual "2"
 
     new File("output/part-001.csv").delete()
-  }
-
-  test("respond with correct status throughout the execution cycle") {
-    val worker = system.actorOf(Props(new ReduceWorker(0, "output")))
-
-    val remoteFiles = Seq(
-      RemoteFileAddress(nodeProbe0.ref, "intermediate-0.csv"),
-      RemoteFileAddress(nodeProbe1.ref, "intermediate-0.csv")
-    )
-
-    val reduceFuncSlow: ReduceFunc = {
-      case (key, values) =>
-        Thread.sleep(1000)
-        Dataset(
-          "country" -> key,
-          "userCount" -> values.count.toString
-        )
-    }
-
-    val execTask = ExecuteTask(reduceFuncSlow, remoteFiles)
-
-    worker ! WorkerActor.GetState
-    expectMsg(WorkerActor.Idle)
-
-    worker ! execTask
-
-    worker ! WorkerActor.GetState
-    expectMsg(WorkerActor.Busy)
-
-    nodeProbe0.expectMsg(GetFile("intermediate-0.csv"))
-    nodeProbe0.reply(intermediateFile0)
-    nodeProbe1.expectMsg(GetFile("intermediate-0.csv"))
-    nodeProbe1.reply(intermediateFile1)
-
-    receiveOne(4 seconds).isInstanceOf[TaskCompleted] shouldEqual true
-    worker ! WorkerActor.GetState
-    expectMsg(WorkerActor.Idle)
   }
 }
 

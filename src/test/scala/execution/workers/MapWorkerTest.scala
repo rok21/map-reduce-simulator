@@ -4,7 +4,7 @@ import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import datastructures.JobSpec.KeyVal
 import execution.tasks.MapTask
-import execution.workers.WorkerActor.TaskCompleted
+import execution.workers.MapWorker.TaskCompleted
 import org.scalatest.{FunSuiteLike, Matchers}
 
 import scala.concurrent.duration._
@@ -53,18 +53,6 @@ class MapWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSuiteL
     numberOfOutputPartitions = 1
   )
 
-  test("respond with correct status throughout the execution cycle") {
-    val worker = system.actorOf(Props(new MapWorker))
-    worker ! WorkerActor.GetState
-    expectMsg(WorkerActor.Idle)
-    worker ! MapWorker.ExecuteTask(slowTask)
-    worker ! WorkerActor.GetState
-    expectMsg(WorkerActor.Busy)
-    receiveOne(2 seconds).isInstanceOf[TaskCompleted] shouldEqual true
-    worker ! WorkerActor.GetState
-    expectMsg(WorkerActor.Idle)
-  }
-
   test("provide file system access while busy") {
     val worker = system.actorOf(Props(new MapWorker))
     worker ! MapWorker.ExecuteTask(quickTask)
@@ -77,8 +65,6 @@ class MapWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSuiteL
     }
 
     worker ! MapWorker.ExecuteTask(slowTask)
-    worker ! WorkerActor.GetState
-    expectMsg(WorkerActor.Busy)
     worker ! MapWorker.GetFile(intermediateFile)
     receiveOne(1 second).isInstanceOf[Seq[String]] shouldEqual true
   }

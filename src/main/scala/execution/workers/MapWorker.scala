@@ -2,7 +2,6 @@ package execution.workers
 
 import akka.pattern.pipe
 import execution.tasks.MapTask
-import execution.workers.WorkerActor._
 import execution.workers.storage.MapWorkerStorage
 
 
@@ -11,20 +10,17 @@ class MapWorker extends WorkerActor {
 
   val storage = new MapWorkerStorage()
 
-  def busy: Receive = handleStateCheck orElse handleFileAccess
-
-  def idle: Receive = handleWork orElse busy
+  def receive: Receive = handleWork orElse handleFileAccess
 
   def handleWork : Receive = {
     case ExecuteTask(mapTask) =>
-      becomeBusy
-      val start = System.currentTimeMillis()
-      val future = mapTask.execute(storage)
-      future.foreach { files =>
-        println(s"Map task completed in ${calcElapsed(start)} ms. Intermediate files produced: ${files.mkString(",")}")
-        becomeIdle
-      }
-      future.map(TaskCompleted) pipeTo sender()
+      timedInMs {
+        () => mapTask.execute(storage)
+      } map {
+        case (files, elapsedMs) =>
+          println(s"Map task completed in $elapsedMs ms. Intermediate files produced: ${files.mkString(",")}")
+          TaskCompleted(files)
+      } pipeTo sender()
   }
 
   def handleFileAccess: Receive = {
@@ -36,4 +32,5 @@ class MapWorker extends WorkerActor {
 object MapWorker {
   case class ExecuteTask(mapTask: MapTask)
   case class GetFile(fileName: String)
+  case class TaskCompleted(fileNames: Seq[String])
 }
