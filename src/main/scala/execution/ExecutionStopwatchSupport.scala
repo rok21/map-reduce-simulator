@@ -10,6 +10,9 @@ trait ExecutionStopwatchSupport {
       result =>
         val timeElapsed = System.currentTimeMillis() - start
         (result, timeElapsed)
+    }.recover { case t =>
+      println(s"Exception while executing the task: ${t.getMessage}")
+      throw t
     }
   }
 }

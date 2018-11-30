@@ -7,7 +7,7 @@ object Task1 extends App {
   val jobSpec = MapReduce(
     map = Seq(
       Map(
-        "data/clicks/",
+        "data/clicks",
         clicks => clicks.map { click =>
           KeyVal(
             key = click("date"),
@@ -25,7 +25,7 @@ object Task1 extends App {
           )
       }
     ),
-    "data/clicks_per_day"
+    "output/clicks_per_day"
   )
 
   val sc = new SimulationContext()
@@ -33,7 +33,7 @@ object Task1 extends App {
     jobSpec = jobSpec,
     M = 4,
     R = 1,
-    maxDuration = 5000 seconds
+    maxDuration = 5 seconds
   )
 }
 

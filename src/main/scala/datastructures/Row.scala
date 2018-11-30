@@ -14,8 +14,10 @@ case class Row(data: Map[String, String]) {
   }
 
   def apply(key: String) = data(key)
+  def contains(key: String) = data.contains(key)
 
   def keys = data.keys
+
 }
 
 object Row {
