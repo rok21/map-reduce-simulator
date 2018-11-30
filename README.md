@@ -1,4 +1,4 @@
-##Running instructions:
+Running instructions:
 
 ./sbt run
 
