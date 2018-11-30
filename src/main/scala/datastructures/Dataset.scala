@@ -20,7 +20,7 @@ class Dataset(val data: Seq[Row]) {
     data.filter(filterFunc)
   )
 
-  def map(mapFunc: Row => Row): Dataset = new Dataset(
+  def mapr(mapFunc: Row => Row): Dataset = new Dataset(
     data.map(mapFunc)
   )
 

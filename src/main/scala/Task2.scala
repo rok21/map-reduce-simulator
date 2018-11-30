@@ -34,7 +34,7 @@ object Task2 extends App {
         case (key, values) =>
           val user = values.select { value => value("table") == "users" }.first
           values.select { value => value("table") == "clicks" }
-                .map { click => click.merge(user.getOrElse(Row.empty)) }
+                .mapr { click => click.merge(user.getOrElse(Row.empty)) }
                 .select { click => click.contains("country")  }
     },
     "output/filtered_clicks"
