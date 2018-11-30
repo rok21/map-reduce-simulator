@@ -1,21 +1,10 @@
 package execution.workers
 
 import akka.actor.Actor
+import execution.ExecutionStopwatchSupport
 
-import scala.concurrent.Future
-
-trait WorkerActor extends Actor {
+trait WorkerActor extends Actor with ExecutionStopwatchSupport {
 
   implicit val ec = context.dispatcher
-
-  def timedInMs[T](task: () => Future[T]) =
-  {
-    val start = System.currentTimeMillis()
-    task().map{
-      result =>
-        val timeElapsed = System.currentTimeMillis() - start
-        (result, timeElapsed)
-    }
-  }
 
 }

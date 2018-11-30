@@ -22,6 +22,6 @@ trait DiskIOSupport {
 
   protected def lsDir(directory: String): Seq[String] ={
     val d = new File(directory)
-    d.list().toSeq
+    d.list().map(f => s"${d.getPath}/$f").toSeq
   }
 }

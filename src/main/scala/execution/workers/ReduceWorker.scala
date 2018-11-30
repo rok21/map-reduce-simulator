@@ -9,7 +9,7 @@ import execution.workers.storage.ReduceWorkerStorage
 
 import scala.concurrent.Future
 
-class ReduceWorker(partitionId: Int, outputDir: String) extends WorkerActor with ReduceWorkerStorage {
+class ReduceWorker(outputDir: String) extends WorkerActor with ReduceWorkerStorage {
 
   import execution.workers.ReduceWorker._
 
@@ -41,13 +41,13 @@ class ReduceWorker(partitionId: Int, outputDir: String) extends WorkerActor with
 
     datasetsF.map { datasetsPerKey =>
       val csv = Dataset.toCsvRows(Dataset.merge(datasetsPerKey))
-      write(outputDir, partitionId, csv)
+      write(outputDir, task.partitionId, csv)
     }
   }
 
 }
 
 object ReduceWorker {
-  case class ExecuteTask(reduceFunc: ReduceFunc, remoteFiles: Seq[RemoteFileAddress])
+  case class ExecuteTask(reduceFunc: ReduceFunc, remoteFiles: Seq[RemoteFileAddress], partitionId: Int)
   case class TaskCompleted(file: String)
 }

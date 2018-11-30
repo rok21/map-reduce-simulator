@@ -1,66 +1,112 @@
 package execution.workers
 
 import akka.actor.{Actor, ActorRef}
-import akka.util.Timeout
 import datastructures.JobSpec.MapReduce
-import execution.tasks.{MapTask, Task}
-import execution.tasks.Task.TaskState
+import execution.tasks.MapTask
 import io.DiskIOSupport
-import akka.pattern.ask
-import scala.concurrent.duration._
 
-class Master(mapWorkers: Seq[ActorRef], reduceWorkers: Seq[ActorRef]) extends WorkerActor with DiskIOSupport {
+class Master(jobSpec: MapReduce, mapWorkers: Seq[ActorRef], reduceWorkers: Seq[ActorRef]) extends Actor with DiskIOSupport {
   import execution.workers.Master._
-  var mapTasks = Map[MapTask, ActiveMapTask]()
-  var mapTasksInProgress = Map[ActorRef, MapTask]()
 
-  def receive : Receive = {
-    case jobSpec: MapReduce =>
-      mapTasks = initializeMapTasks(jobSpec)
+  var idleMapTasks = Seq[MapTask]()
+  var idleMapWorkers = mapWorkers
+
+  val partitionCount = reduceWorkers.size
+  var intermediateFiles: Map[Int, Seq[RemoteFileAddress]] = initializeIntermediateFiles
+
+  var finalOutputFiles = Seq.empty[String]
+
+  def idle: Receive = {
+    case StartJob =>
+      idleMapTasks = initializeMapTasks
       scheduleMapTasks
+      checkForMapStageCompletion
+      context.become(busy(sender()))
   }
 
+  def busy(replyTo: ActorRef): Receive = {
+    case StartJob =>
+      idleMapTasks = initializeMapTasks
+      scheduleMapTasks
+      checkForMapStageCompletion
+
+    case MapWorker.TaskCompleted(fileNames) =>
+      val mapWorker = sender()
+      idleMapWorkers = idleMapWorkers :+ mapWorker
+      scheduleMapTasks
+      rememberIntermediateFiles(mapWorker, fileNames)
+      checkForMapStageCompletion
+
+    case MapStageCompleted =>
+      scheduleReduceTasks
+      checkForReduceStageCompletion
+
+    case ReduceWorker.TaskCompleted(outputFile) =>
+      finalOutputFiles = finalOutputFiles :+ outputFile
+      checkForReduceStageCompletion
+
+    case ReduceStageCompleted =>
+      replyTo ! JobCompleted(finalOutputFiles)
+      context.become(idle)
+  }
+
+  def receive : Receive = idle
+
+
+  private def scheduleReduceTasks = (reduceWorkers zip intermediateFiles) foreach {
+    case (worker, (partition, intermediateFiles)) =>
+      worker ! ReduceWorker.ExecuteTask(reduceFunc = jobSpec.reduce.reduceFunc, intermediateFiles, partition)
+  }
+
+  private def rememberIntermediateFiles(mapWorker: ActorRef, fileNames: Seq[String]) = {
+    fileNames.zipWithIndex map {
+      case (fileName, partition) =>
+        val remoteFileAddress = RemoteFileAddress(mapWorker, fileName)
+        intermediateFiles =
+            intermediateFiles.updated(partition, intermediateFiles(partition) :+ remoteFileAddress)
+    }
+  }
 
   private def scheduleMapTasks = {
-//    val idleWorkers = workerStates.collect {
-//      case (worker, WorkerActor.Idle) => worker
-//    }
-//    val idleTasks = mapTasks.collect {
-//      case (task, ActiveMapTask(Task.Idle, _, _)) => task
-//    }
-//    idleWorkers.zip(idleTasks) foreach {
-//      case (worker, task) =>
-//        mapTasks = mapTasks.updated(task, ActiveMapTask(Task.InProgress, Some(worker), Nil))
-//        workerStates = workerStates.updated(worker, WorkerActor.Busy)
-//        worker ! MapWorker.ExecuteTask(task)
-//    }
+    val pairs = idleMapWorkers.zip(idleMapTasks)
+    pairs foreach {
+      case (worker, task) =>
+        idleMapTasks = idleMapTasks.tail
+        idleMapWorkers = idleMapWorkers.tail
+        worker ! MapWorker.ExecuteTask(task)
+    }
   }
 
-  private def initializeMapTasks(jobSpec: MapReduce) = {
+  private def initializeMapTasks = {
     val filesAndFuncs = for {
       mapSpec <- jobSpec.map
       inputFile <- lsDir(mapSpec.inputDir)
     } yield (inputFile, mapSpec.mapFunc)
 
-    val tasks = filesAndFuncs map {
+   filesAndFuncs map {
       case (inputFile, mapFunc) => MapTask(inputFile, mapFunc, reduceWorkers.size)
     }
-
-    tasks.map { task =>
-      (task, ActiveMapTask(Task.Idle, None, Nil))
-    }.toMap
   }
 
-  private def mapStageCompleted = {
-    mapTasks.count { case (_, ActiveMapTask(state, _, _)) => state != Task.Completed } == 0
-  }
+  private def checkForMapStageCompletion =
+    if(idleMapTasks.isEmpty && idleMapWorkers.size == mapWorkers.size) {
+      self ! MapStageCompleted
+    }
+
+  private def checkForReduceStageCompletion =
+    if(finalOutputFiles.size == partitionCount) {
+      self ! ReduceStageCompleted
+    }
+
+  private def initializeIntermediateFiles = 0 until partitionCount map (p => p -> Seq.empty[RemoteFileAddress]) toMap
 }
 
 object Master {
+  case object StartJob
+  case class JobCompleted(outputFiles: Seq[String])
+
+  private case object MapStageCompleted
+  private case object ReduceStageCompleted
+
   case class RemoteFileAddress(node: ActorRef, fileName: String)
-  case class ActiveMapTask(
-    state: TaskState,
-    worker: Option[ActorRef],
-    producedFiles: Seq[String]
-  )
 }

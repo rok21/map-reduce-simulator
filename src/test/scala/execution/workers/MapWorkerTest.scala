@@ -12,16 +12,7 @@ import scala.concurrent.duration._
 class MapWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSuiteLike with Matchers with ImplicitSender {
   implicit val ec = system.dispatcher
 
-  val quickTask = new MapTask(
-    "src/test/resources/data/users/part-001.csv",
-    mapFunc = users => users.map { user =>
-      KeyVal(
-        key = user("country"),
-        value = user
-      )
-    },
-    numberOfOutputPartitions = 1
-  )
+  import MapWorkerTest._
 
   test("execute a task, send back file names and handle file access") {
     val worker = system.actorOf(Props(new MapWorker))
@@ -41,18 +32,6 @@ class MapWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSuiteL
     csvRows.size shouldEqual 7 // 6 users + 1 header row
   }
 
-  val slowTask = new MapTask(
-    "src/test/resources/data/users/part-001.csv",
-    mapFunc = users => users.map { user =>
-      Thread.sleep(100)
-      KeyVal(
-        key = user("country"),
-        value = user
-      )
-    },
-    numberOfOutputPartitions = 1
-  )
-
   test("provide file system access while busy") {
     val worker = system.actorOf(Props(new MapWorker))
     worker ! MapWorker.ExecuteTask(quickTask)
@@ -68,4 +47,29 @@ class MapWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSuiteL
     worker ! MapWorker.GetFile(intermediateFile)
     receiveOne(1 second).isInstanceOf[Seq[String]] shouldEqual true
   }
+}
+
+object MapWorkerTest {
+  val slowTask = new MapTask(
+    "src/test/resources/data/users/part-001.csv",
+    mapFunc = users => users.map { user =>
+      Thread.sleep(100)
+      KeyVal(
+        key = user("country"),
+        value = user
+      )
+    },
+    numberOfOutputPartitions = 1
+  )
+
+  val quickTask = new MapTask(
+    "src/test/resources/data/users/part-001.csv",
+    mapFunc = users => users.map { user =>
+      KeyVal(
+        key = user("country"),
+        value = user
+      )
+    },
+    numberOfOutputPartitions = 1
+  )
 }
