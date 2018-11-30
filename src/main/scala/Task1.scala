@@ -4,6 +4,15 @@ import execution.SimulationContext
 import scala.concurrent.duration._
 
 object Task1 extends App {
+
+  /*
+
+  Having in mind `data/clicks` dataset with "date" column,
+  count how many clicks there were for each date
+  and write the results to `data/total_clicks` dataset with "date" and "count" columns.
+
+  */
+
   val jobSpec = MapReduce(
     map = Seq(
       Map(

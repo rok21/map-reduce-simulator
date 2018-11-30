@@ -5,6 +5,19 @@ import execution.SimulationContext
 import scala.concurrent.duration._
 
 object Task2 extends App {
+
+  /*
+
+There are two datasets:
+
+- `data/users` dataset with columns "id" and "country"
+- `data/clicks` dataset with columns "date", "user_id" and "click_target"
+
+We'd like to produce a new dataset called `data/filtered_clicks`
+that includes only those clicks that belong to users from Lithuania (`country=LT`).
+
+   */
+
   val jobSpec = MapReduce(
     map = Seq(
       Map(
