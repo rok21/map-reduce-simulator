@@ -3,6 +3,7 @@ package execution.workers
 import akka.actor.{Actor, ActorRef}
 import datastructures.JobSpec.MapReduce
 import execution.tasks.MapTask
+import execution.tasks.MapTask.MapTaskResult
 import io.DiskIOSupport
 
 class Master(jobSpec: MapReduce, mapWorkers: Seq[ActorRef], reduceWorkers: Seq[ActorRef]) extends Actor with DiskIOSupport {
@@ -30,11 +31,11 @@ class Master(jobSpec: MapReduce, mapWorkers: Seq[ActorRef], reduceWorkers: Seq[A
       scheduleMapTasks
       checkForMapStageCompletion
 
-    case MapWorker.TaskCompleted(fileNames) =>
+    case MapWorker.TaskCompleted(result) =>
       val mapWorker = sender()
       idleMapWorkers = idleMapWorkers :+ mapWorker
       scheduleMapTasks
-      rememberIntermediateFiles(mapWorker, fileNames)
+      rememberIntermediateFiles(mapWorker, result)
       checkForMapStageCompletion
 
     case MapStageCompleted =>
@@ -58,14 +59,17 @@ class Master(jobSpec: MapReduce, mapWorkers: Seq[ActorRef], reduceWorkers: Seq[A
       worker ! ReduceWorker.ExecuteTask(reduceFunc = jobSpec.reduce.reduceFunc, intermediateFiles, partition)
   }
 
-  private def rememberIntermediateFiles(mapWorker: ActorRef, fileNames: Seq[String]) = {
-    fileNames.zipWithIndex map {
-      case (fileName, partition) =>
+  private def rememberIntermediateFiles(mapWorker: ActorRef, result: MapTaskResult) =
+    result.partitions foreach {
+      case (partitionId, Some(fileName)) =>
         val remoteFileAddress = RemoteFileAddress(mapWorker, fileName)
         intermediateFiles =
-            intermediateFiles.updated(partition, intermediateFiles(partition) :+ remoteFileAddress)
+            intermediateFiles.updated(
+              partitionId,
+              intermediateFiles(partitionId) :+ remoteFileAddress
+            )
+      case _ => ()
     }
-  }
 
   private def scheduleMapTasks = {
     val pairs = idleMapWorkers.zip(idleMapTasks)

@@ -22,8 +22,10 @@ class ReduceWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSui
   val nodeProbe0 = TestProbe()
   val nodeProbe1 = TestProbe()
 
+  val testOutputDir = "src/test/resources/data/output"
+
   test("download files, execute reduce tasks, write results to disk and respond with a file name") {
-    val worker = system.actorOf(Props(new ReduceWorker("src/test/resources/data/output")))
+    val worker = system.actorOf(Props(new ReduceWorker(testOutputDir)))
 
     val remoteFiles = Seq(
       RemoteFileAddress(nodeProbe0.ref, "intermediate-0.csv"),
@@ -39,10 +41,10 @@ class ReduceWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSui
 
     receiveOne(5 seconds) match {
       case TaskCompleted(outputFile) =>
-        outputFile shouldEqual "output/part-001.csv"
+        outputFile shouldEqual s"$testOutputDir/part-001.csv"
     }
 
-    val finalOutput = Dataset.fromCsv(readFile("output/part-001.csv"))
+    val finalOutput = Dataset.fromCsv(readFile(s"$testOutputDir/part-001.csv"))
     finalOutput.count shouldEqual 2
     val firstRow = finalOutput.data.toList(0)
     firstRow("country") shouldEqual "LT"
@@ -51,11 +53,11 @@ class ReduceWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSui
     secondRow("country") shouldEqual "LV"
     secondRow("userCount") shouldEqual "2"
 
-    new File("output/part-001.csv").delete()
+    new File(s"$testOutputDir/part-001.csv").delete()
   }
 
   test("handle empty partition") {
-    val worker = system.actorOf(Props(new ReduceWorker("src/test/resources/data/output")))
+    val worker = system.actorOf(Props(new ReduceWorker(testOutputDir)))
 
     val remoteFiles = Seq(
       RemoteFileAddress(nodeProbe0.ref, "intermediate-0.csv"),
@@ -71,11 +73,11 @@ class ReduceWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSui
 
     receiveOne(5 seconds) match {
       case TaskCompleted(outputFile) =>
-        outputFile shouldEqual "output/part-001.csv"
+        outputFile shouldEqual s"$testOutputDir/part-001.csv"
     }
 
-    readFile("output/part-001.csv").isEmpty shouldEqual true
-    new File("output/part-001.csv").delete()
+    readFile(s"$testOutputDir/part-001.csv").isEmpty shouldEqual true
+    new File(s"$testOutputDir/part-001.csv").delete()
   }
 }
 

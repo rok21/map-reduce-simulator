@@ -42,7 +42,7 @@ object Task1 extends App {
     jobSpec = jobSpec,
     M = 4,
     R = 1,
-    maxDuration = 5 seconds
+    maxDuration = 1 hour
   )
 }
 

@@ -27,18 +27,19 @@ class MapTaskTest extends WordSpec with Matchers {
       numberOfOutputPartitions = 2
     )
 
-    val outputFiles = Await.result(task.execute(storage), 3 seconds)
-    outputFiles.size shouldEqual 2
+    val result = Await.result(task.execute(storage), 3 seconds)
+    result.partitions.size shouldEqual 2
+    val outputFiles = result.partitions.values.flatten
 
     val file0 = storage.read(outputFiles.head)
     val file1 = storage.read(outputFiles.tail.head)
 
     Dataset.fromCsv(file0).data.map(row => row(Row.intermediateKeyColumnName)) foreach {
-      key => key shouldEqual "DE"
+      key => key shouldEqual "LT"
     }
 
     Dataset.fromCsv(file1).data.map(row => row(Row.intermediateKeyColumnName)) foreach {
-      key => key shouldEqual "LT"
+      key => key shouldEqual "DE"
     }
   }
 

@@ -51,14 +51,24 @@ object Dataset {
   }
 
   def toCsvRows(dataset: Dataset) : Seq[String] = {
-    dataset.first match {
-      case Some(firstRow) =>
-        val headerRow = firstRow.keys.mkString(",")
-        val dataRows = dataset.data.map {
-          row => row.data.values.mkString(",")
-        }
-        headerRow +: dataRows
-      case None => Seq.empty
+    val columnsUnion = dataset
+        .data.foldLeft(Seq.empty[String]){ case (union, currentRow) =>
+      union.union(currentRow.keys.toSeq).distinct
     }
+
+    columnsUnion match {
+      case Nil => Seq.empty
+      case _ =>
+        val headerRow = columnsUnion.mkString(",")
+
+        val bodyRows = dataset.data.map { row =>
+          columnsUnion.map { col =>
+            row.data.getOrElse(key = col, default = "")
+          }.mkString(",")
+        }
+
+        headerRow +: bodyRows
+    }
+
   }
 }

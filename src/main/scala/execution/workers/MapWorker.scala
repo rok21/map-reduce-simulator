@@ -2,6 +2,7 @@ package execution.workers
 
 import akka.pattern.pipe
 import execution.tasks.MapTask
+import execution.tasks.MapTask.MapTaskResult
 import execution.workers.storage.MapWorkerStorage
 
 
@@ -17,9 +18,11 @@ class MapWorker extends WorkerActor {
       timedInMs {
         () => mapTask.execute(storage)
       } map {
-        case (files, elapsedMs) =>
-          println(s"Map task completed in $elapsedMs ms. Intermediate files produced: ${files.mkString(",")}")
-          TaskCompleted(files)
+        case (result, elapsedMs) =>
+          val files = result.partitions.flatMap(_._2)
+          println(s"Map task completed in $elapsedMs ms. " +
+                      s"Intermediate files produced: ${files.mkString(",")}")
+          TaskCompleted(result)
       } pipeTo sender()
   }
 
@@ -32,5 +35,5 @@ class MapWorker extends WorkerActor {
 object MapWorker {
   case class ExecuteTask(mapTask: MapTask)
   case class GetFile(fileName: String)
-  case class TaskCompleted(fileNames: Seq[String])
+  case class TaskCompleted(taskResult: MapTaskResult)
 }

@@ -18,9 +18,9 @@ class MapWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSuiteL
     val worker = system.actorOf(Props(new MapWorker))
     worker ! MapWorker.ExecuteTask(quickTask)
     val intermediateFile = receiveOne(1 second) match {
-      case TaskCompleted(fileNames) =>
-        fileNames.size shouldEqual 1
-        fileNames.head
+      case TaskCompleted(result) =>
+        result.partitions.size shouldEqual 1
+        result.partitions.values.head.get
       case x => sys.error(s"Unexpected response from map worker: $x")
     }
 
@@ -37,9 +37,9 @@ class MapWorkerTest extends TestKit(ActorSystem("MapWorkerTest")) with FunSuiteL
     worker ! MapWorker.ExecuteTask(quickTask)
 
     val intermediateFile = receiveOne(1 second) match {
-      case TaskCompleted(fileNames) =>
-        fileNames.size shouldEqual 1
-        fileNames.head
+      case TaskCompleted(result) =>
+        result.partitions.size shouldEqual 1
+        result.partitions.values.head.get
       case x => sys.error(s"Unexpected response from map worker: $x")
     }
 

@@ -18,7 +18,7 @@ trait ReduceWorkerStorage extends DiskIOSupport {
     fileName
   }
 
-  implicit val remoteFileAccessTimeout = new Timeout(3 seconds)
+  implicit val remoteFileAccessTimeout = new Timeout(30 seconds)
   def remoteRead(remoteFileAddress: RemoteFileAddress) =
     (remoteFileAddress.node ? MapWorker.GetFile(remoteFileAddress.fileName)).mapTo[Seq[String]]
 
