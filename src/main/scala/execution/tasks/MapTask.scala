@@ -1,9 +1,9 @@
 package execution.tasks
 
+import java.util.UUID
+
 import datastructures.JobSpec.{KeyVal, MapFunc}
-import datastructures.{Dataset, JobSpec, Row}
-import execution.tasks.MapTask.MapTaskResult
-import execution.workers.storage.MapWorkerStorage
+import datastructures.{Dataset, JobSpec}
 import io.DiskIOSupport
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -13,7 +13,7 @@ case class MapTask(
   mapFunc: MapFunc,
   numberOfOutputPartitions: Int) extends DiskIOSupport {
 
-  def execute(outputStorage: MapWorkerStorage)(implicit ec: ExecutionContext): Future[MapTaskResult] = Future {
+  def execute(implicit ec: ExecutionContext): Future[Map[Int, Option[String]]] = Future {
     val dataset = Dataset.fromCsv(readFile(inputFileName))
     val mapped: Seq[JobSpec.KeyVal] = mapFunc(dataset)
 
@@ -22,30 +22,17 @@ case class MapTask(
           Math.abs(key.hashCode() % numberOfOutputPartitions)
         }
 
-    val result = partitioned.foldLeft(MapTaskResult(numberOfOutputPartitions)) {
+    val emptyMap: Map[Int, Option[String]] = 0 until numberOfOutputPartitions map { i => i -> None  } toMap
+
+    val result = partitioned.foldLeft(emptyMap) {
       case (finalResult, (partition, pairs)) =>
-        val fileName = s"intermediate-${inputFileName.hashCode()}-$partition.csv"
-        val intermediateDataset = new Dataset(
-          pairs.map {
-            case KeyVal(key, row) => row.merge(Row.intermediateKeyColumnName, key)
+        val fileName = s"intermediate/${UUID.randomUUID()}"
+        val intermediateDataset = pairs.map {
+            case KeyVal(key, row) => row.updated(Dataset.intermediateKeyColumnName, key)
           }
-        )
-        outputStorage.write(fileName, Dataset.toCsvRows(intermediateDataset))
-        finalResult.copy(finalResult.partitions.updated(partition, Some(fileName)))
+        writeFile(fileName, Dataset.toCsvRows(intermediateDataset))
+        finalResult.updated(partition, Some(fileName))
     }
-
     result
-  }
-}
-
-object MapTask {
-  case class MapTaskResult(partitions: Map[Int, Option[String]])
-  object MapTaskResult {
-    def apply(partitionCount: Int): MapTaskResult = {
-      val map: Map[Int, Option[String]] =
-        0 until partitionCount map { i => i -> None  } toMap
-
-      new MapTaskResult(map)
-    }
   }
 }

@@ -2,6 +2,7 @@ import datastructures.Dataset
 import datastructures.JobSpec.{KeyVal, Map, MapReduce, Reduce}
 import execution.SimulationContext
 import scala.concurrent.duration._
+import scala.collection.immutable.{Map => HashMap}
 
 object Task1 extends App {
 
@@ -28,10 +29,10 @@ object Task1 extends App {
     reduce = Reduce(
       {
         case (key, values) =>
-          Dataset(
+          Seq(HashMap(
             "date" -> key,
-            "count" -> values.count.toString
-          )
+            "count" -> values.size.toString
+          ))
       }
     ),
     "output/clicks_per_day"

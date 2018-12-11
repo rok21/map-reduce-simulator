@@ -1,4 +1,5 @@
 package datastructures
+import scala.collection.immutable.{Map => HashMap}
 
 object JobSpec {
 
@@ -7,6 +8,9 @@ object JobSpec {
     reduce: Reduce,
     outputDir: String
   )
+
+  type Row = HashMap[String, String]
+  type Dataset = Seq[Row]
 
   case class KeyVal(key: String, value: Row)
 

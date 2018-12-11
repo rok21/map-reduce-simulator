@@ -9,7 +9,7 @@ import execution.workers.{MapWorker, Master, ReduceWorker}
 
 import scala.concurrent.duration.FiniteDuration
 
-class SimulationContext extends ExecutionStopwatchSupport {
+class SimulationContext {
   val system = ActorSystem("MapReduceSimulation")
   implicit val ec = system.dispatcher
   def createActors(props: Props, numberOfActors: Int) =
@@ -26,11 +26,8 @@ class SimulationContext extends ExecutionStopwatchSupport {
     val mapWorkers = createActors(Props(new MapWorker()), M)
     val reduceWorkers = createActors(Props(new ReduceWorker(jobSpec.outputDir)), R)
     val master = system.actorOf(Props(new Master(jobSpec, mapWorkers, reduceWorkers)))
-    timedInMs {
-      () => master ? StartJob
-    } map { case (Master.JobCompleted(outputFiles), elapsedMs) =>
-        println(s"MapReduce job completed successfully in $elapsedMs")
-        println("Final output files produced:")
+    (master ? StartJob) map { case Master.JobCompleted(outputFiles) =>
+        println(s"MapReduce job completed successfully. Final output files produced:")
         outputFiles.foreach(println)
     } recover { case e: AskTimeoutException =>
       println(s"MapReduce job didn't complete in $maxDuration")

@@ -3,7 +3,6 @@ package execution.workers
 import akka.actor.{Actor, ActorRef}
 import datastructures.JobSpec.MapReduce
 import execution.tasks.MapTask
-import execution.tasks.MapTask.MapTaskResult
 import io.DiskIOSupport
 
 class Master(jobSpec: MapReduce, mapWorkers: Seq[ActorRef], reduceWorkers: Seq[ActorRef]) extends Actor with DiskIOSupport {
@@ -11,10 +10,8 @@ class Master(jobSpec: MapReduce, mapWorkers: Seq[ActorRef], reduceWorkers: Seq[A
 
   var idleMapTasks = Seq[MapTask]()
   var idleMapWorkers = mapWorkers
-
   val partitionCount = reduceWorkers.size
-  var intermediateFiles: Map[Int, Seq[RemoteFileAddress]] = initializeIntermediateFiles
-
+  var intermediateFiles: Map[Int, Seq[String]] = 0 until partitionCount map (p => p -> Seq.empty[String]) toMap
   var finalOutputFiles = Seq.empty[String]
 
   def idle: Receive = {
@@ -59,15 +56,10 @@ class Master(jobSpec: MapReduce, mapWorkers: Seq[ActorRef], reduceWorkers: Seq[A
       worker ! ReduceWorker.ExecuteTask(reduceFunc = jobSpec.reduce.reduceFunc, intermediateFiles, partition)
   }
 
-  private def rememberIntermediateFiles(mapWorker: ActorRef, result: MapTaskResult) =
-    result.partitions foreach {
+  private def rememberIntermediateFiles(mapWorker: ActorRef, result: Map[Int, Option[String]]) =
+    result foreach {
       case (partitionId, Some(fileName)) =>
-        val remoteFileAddress = RemoteFileAddress(mapWorker, fileName)
-        intermediateFiles =
-            intermediateFiles.updated(
-              partitionId,
-              intermediateFiles(partitionId) :+ remoteFileAddress
-            )
+        intermediateFiles = intermediateFiles.updated(partitionId, intermediateFiles(partitionId) :+ fileName)
       case _ => ()
     }
 
@@ -101,8 +93,6 @@ class Master(jobSpec: MapReduce, mapWorkers: Seq[ActorRef], reduceWorkers: Seq[A
     if(finalOutputFiles.size == partitionCount) {
       self ! ReduceStageCompleted
     }
-
-  private def initializeIntermediateFiles = 0 until partitionCount map (p => p -> Seq.empty[RemoteFileAddress]) toMap
 }
 
 object Master {
@@ -111,6 +101,4 @@ object Master {
 
   private case object MapStageCompleted
   private case object ReduceStageCompleted
-
-  case class RemoteFileAddress(node: ActorRef, fileName: String)
 }

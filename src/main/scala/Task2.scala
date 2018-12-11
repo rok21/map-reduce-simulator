@@ -1,4 +1,4 @@
-import datastructures.{Dataset, Row}
+import scala.collection.immutable.{Map => HashMap}
 import datastructures.JobSpec.{KeyVal, Map, MapReduce, Reduce}
 import execution.SimulationContext
 
@@ -24,11 +24,11 @@ that includes only those clicks that belong to users from Lithuania (`country=LT
         "data/users",
         users =>
           users
-              .select { user => user("country") == "LT" }
+              .filter { user => user("country") == "LT" }
               .map { user =>
                 KeyVal(
                   key = user("id"),
-                  value = user.merge("table" -> "users")
+                  value = user.updated("table", "users")
                 )
               }
       ),
@@ -38,17 +38,17 @@ that includes only those clicks that belong to users from Lithuania (`country=LT
          clicks.map { click =>
            KeyVal(
              key = click("user_id"),
-             value = click.merge("table" -> "clicks")
+             value = click.updated("table", "clicks")
            )
          }
       )
     ),
     reduce = Reduce {
         case (key, values) =>
-          val user = values.select { value => value("table") == "users" }.first
-          values.select { value => value("table") == "clicks" }
-                .mapr { click => click.merge(user.getOrElse(Row.empty)) }
-                .select { click => click.contains("country")  }
+          val user = values.filter { value => value("table") == "users" }.headOption
+          values.filter { value => value("table") == "clicks" }
+                .map { click => click ++ user.getOrElse(HashMap.empty) }
+                .filter { click => click.contains("country")  }
     },
     "output/filtered_clicks"
   )

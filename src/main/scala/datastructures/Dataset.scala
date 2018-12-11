@@ -1,74 +1,46 @@
 package datastructures
 
-import datastructures.JobSpec.{DataForKey, KeyVal}
+import datastructures.JobSpec.{DataForKey, Dataset}
 
-class Dataset(val data: Seq[Row]) {
-
-  def sortAndGroupByIntermediateKey: Seq[DataForKey] =
-    data.groupBy(row => row(Row.intermediateKeyColumnName))
-        .map {
-          case (key, intermediateRows) =>
-            //remove intermediate key from the dataset
-            val rows = intermediateRows.map(ir => Row(ir.data - Row.intermediateKeyColumnName))
-            (key, new Dataset(rows))
-        }
-        .toSeq.sortBy { case (key, _) => key }
-
-  // syntax sugar
-
-  def select(filterFunc: Row => Boolean) = new Dataset(
-    data.filter(filterFunc)
-  )
-
-  def mapr(mapFunc: Row => Row): Dataset = new Dataset(
-    data.map(mapFunc)
-  )
-
-  def map(func: Row => KeyVal): Seq[KeyVal] = data.map(func)
-
-  def first = data.headOption
-
-  def count = data.size
-}
 
 object Dataset {
-
-  def apply(a: (String, String)*) = new Dataset(Seq(Row(a:_*)))
-
-  def merge(datasets: Seq[Dataset]) = new Dataset(
-    datasets.flatMap(_.data)
-  )
 
   def fromCsv(contentRows: Seq[String]): Dataset = contentRows.headOption match {
     case Some(headerRow) =>
       val headers = headerRow.split(",")
-      val dataRows = contentRows.tail.map { str =>
+      contentRows.tail.map { str =>
         val values = str.split(",")
-        Row(headers.zip(values) :_*)
+        headers.zip(values).toMap
       }
-      new Dataset(dataRows)
-    case None => new Dataset(Seq.empty)
+    case None => Seq.empty
   }
 
   def toCsvRows(dataset: Dataset) : Seq[String] = {
-    val columnsUnion = dataset
-        .data.foldLeft(Seq.empty[String]){ case (union, currentRow) =>
+    val columnsUnion = dataset.foldLeft(Seq.empty[String]){ case (union, currentRow) =>
       union.union(currentRow.keys.toSeq).distinct
     }
-
     columnsUnion match {
       case Nil => Seq.empty
       case _ =>
         val headerRow = columnsUnion.mkString(",")
 
-        val bodyRows = dataset.data.map { row =>
+        val bodyRows = dataset.map { row =>
           columnsUnion.map { col =>
-            row.data.getOrElse(key = col, default = "")
+            row.getOrElse(key = col, default = "")
           }.mkString(",")
         }
-
         headerRow +: bodyRows
     }
-
   }
+
+  def sortAndGroupByIntermediateKey(dataset: Dataset): Seq[DataForKey] =
+    dataset.groupBy(row => row(intermediateKeyColumnName))
+        .map {
+          case (key, intermediateRows) =>
+            //remove intermediate key from the dataset
+            (key, intermediateRows.map(ir => ir - intermediateKeyColumnName))
+        }
+        .toSeq.sortBy { case (key, _) => key }
+
+  val intermediateKeyColumnName = "@@intermediateKeyColumnName@@"
 }

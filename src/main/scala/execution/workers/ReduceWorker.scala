@@ -1,53 +1,52 @@
 package execution.workers
 
+import akka.actor.Actor
 import akka.pattern.pipe
 import datastructures.Dataset
 import datastructures.JobSpec.ReduceFunc
-import execution.workers.Master.RemoteFileAddress
 import execution.tasks.ReduceTask
-import execution.workers.storage.ReduceWorkerStorage
+import io.DiskIOSupport
 
 import scala.concurrent.Future
 
-class ReduceWorker(outputDir: String) extends WorkerActor with ReduceWorkerStorage {
+class ReduceWorker(outputDir: String) extends Actor with DiskIOSupport {
 
   import execution.workers.ReduceWorker._
+  implicit val ec = context.dispatcher
 
-  def receive: Receive = handleWork
-
-  def handleWork: Receive = {
+  def receive: Receive = {
     case task: ExecuteTask =>
-      timedInMs {
-        () => execTask(task)
-      } map { case (fileWritten, elapsedMs) =>
-        println(s"Reduce task completed in $elapsedMs ms. Output file produced: $fileWritten")
+      execTask(task) map { fileWritten =>
+        println(s"Reduce task completed successfully. Output file produced: $fileWritten")
         TaskCompleted(fileWritten)
       } pipeTo sender()
   }
 
   private def execTask(task: ExecuteTask) = {
-    val readFutures = task.remoteFiles.map(remoteRead)
-    val datasetsF = for {
-      files <- Future.sequence(readFutures)
-      datasetsPerPartition = files.map(Dataset.fromCsv)
-      mainDataset = Dataset.merge(datasetsPerPartition)
-      grouped = mainDataset.sortAndGroupByIntermediateKey
-      keyFuture = for {
-        dataForKey <- grouped
-        reduceTask = new ReduceTask(dataForKey, task.reduceFunc)
-      } yield reduceTask.execute()
-      partitionFuture <- Future.sequence(keyFuture)
-    } yield partitionFuture
+    val files = task.intermediateFiles.map(readFile)
+    val datasets = files.map(Dataset.fromCsv)
+    val mainDataset = datasets.flatten
+    val grouped = Dataset.sortAndGroupByIntermediateKey(mainDataset)
+    val keyFuture = for {
+      dataForKey <- grouped
+      reduceTask = new ReduceTask(dataForKey, task.reduceFunc)
+    } yield reduceTask.execute()
 
-    datasetsF.map { datasetsPerKey =>
-      val csv = Dataset.toCsvRows(Dataset.merge(datasetsPerKey))
+    Future.sequence(keyFuture).map { datasetsPerKey =>
+      val csv = Dataset.toCsvRows(datasetsPerKey.flatten)
       write(outputDir, task.partitionId, csv)
     }
   }
 
+  private def write(outputDir: String, partitionNumber: Int, content: Seq[String]) = {
+    val partitionSuffix: String = (1000 + partitionNumber + 1).toString.tail
+    val fileName = s"$outputDir/part-$partitionSuffix.csv"
+    writeFile(fileName, content)
+    fileName
+  }
 }
 
 object ReduceWorker {
-  case class ExecuteTask(reduceFunc: ReduceFunc, remoteFiles: Seq[RemoteFileAddress], partitionId: Int)
+  case class ExecuteTask(reduceFunc: ReduceFunc, intermediateFiles: Seq[String], partitionId: Int)
   case class TaskCompleted(file: String)
 }
