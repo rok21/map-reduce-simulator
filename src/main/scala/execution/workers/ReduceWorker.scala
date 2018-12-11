@@ -1,52 +1,30 @@
 package execution.workers
 
 import akka.actor.Actor
-import akka.pattern.pipe
 import datastructures.Dataset
 import datastructures.JobSpec.ReduceFunc
-import execution.tasks.ReduceTask
 import io.DiskIOSupport
 
-import scala.concurrent.Future
+class ReduceWorker(partition: Int, reduceFunc: ReduceFunc, outputDir: String, mapTasksCount: Int) extends Actor with DiskIOSupport {
 
-class ReduceWorker(outputDir: String) extends Actor with DiskIOSupport {
-
-  import execution.workers.ReduceWorker._
   implicit val ec = context.dispatcher
+  var intermediateFiles = Seq.empty[Option[String]]
 
   def receive: Receive = {
-    case task: ExecuteTask =>
-      execTask(task) map { fileWritten =>
-        println(s"Reduce task completed successfully. Output file produced: $fileWritten")
-        TaskCompleted(fileWritten)
-      } pipeTo sender()
+    case intermediateFile: Option[String] =>
+      intermediateFiles = intermediateFiles :+ intermediateFile
+      if(intermediateFiles.size == mapTasksCount) //map stage finished
+        execTask
   }
 
-  private def execTask(task: ExecuteTask) = {
-    val files = task.intermediateFiles.map(readFile)
-    val datasets = files.map(Dataset.fromCsv)
-    val mainDataset = datasets.flatten
-    val grouped = Dataset.sortAndGroupByIntermediateKey(mainDataset)
-    val keyFuture = for {
-      dataForKey <- grouped
-      reduceTask = new ReduceTask(dataForKey, task.reduceFunc)
-    } yield reduceTask.execute()
-
-    Future.sequence(keyFuture).map { datasetsPerKey =>
-      val csv = Dataset.toCsvRows(datasetsPerKey.flatten)
-      write(outputDir, task.partitionId, csv)
-    }
-  }
-
-  private def write(outputDir: String, partitionNumber: Int, content: Seq[String]) = {
-    val partitionSuffix: String = (1000 + partitionNumber + 1).toString.tail
+  private def execTask = {
+    val fileContents = intermediateFiles.flatten.map(readFile)
+    val dataset = fileContents.flatMap(Dataset.fromCsv)
+    val grouped = Dataset.sortAndGroupByIntermediateKey(dataset)
+    val finalDataset = grouped flatMap reduceFunc
+    val partitionSuffix: String = (1000 + partition + 1).toString.tail
     val fileName = s"$outputDir/part-$partitionSuffix.csv"
-    writeFile(fileName, content)
-    fileName
+    writeFile(fileName, Dataset.toCsvRows(finalDataset))
+    println(s"Reduce task completed successfully. File produced: $fileName")
   }
-}
-
-object ReduceWorker {
-  case class ExecuteTask(reduceFunc: ReduceFunc, intermediateFiles: Seq[String], partitionId: Int)
-  case class TaskCompleted(file: String)
 }

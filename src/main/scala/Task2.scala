@@ -16,7 +16,7 @@ There are two datasets:
 We'd like to produce a new dataset called `data/filtered_clicks`
 that includes only those clicks that belong to users from Lithuania (`country=LT`).
 
-   */
+ */
 
   val jobSpec = MapReduce(
     map = Seq(
@@ -57,43 +57,6 @@ that includes only those clicks that belong to users from Lithuania (`country=LT
   sc.executeJob(
     jobSpec = jobSpec,
     M = 4,
-    R = 1,
-    maxDuration = 5 seconds
+    R = 1
   )
 }
-
-/*
-```ruby
-  MapReduce(
-    map: {
-      'data/users' => lambda { |users|
-        users
-          .select { |user| user['country'] == 'LT' }
-          .map { |user|
-            {
-              key: user['id'],
-              value: user.merge('table' => 'users')
-            }
-          }
-      },
-      'data/clicks' => lambda { |clicks|
-        clicks.map { |click|
-          {
-            key: click['user_id'],
-            value: click.merge('table' => 'clicks')
-          }
-        }
-      }
-    },
-    reduce: lambda { |key, values|
-      user = values.select { |value| value['table'] == 'users' }.first
-
-      values
-        .select { |value| value['table'] == 'clicks' }
-        .map { |click| click.merge(user || {}) }
-        .select { |click| !click['country'].nil? }
-    },
-    output: 'data/filtered_clicks'
-  )
-```
- */

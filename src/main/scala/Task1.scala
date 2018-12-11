@@ -42,34 +42,6 @@ object Task1 extends App {
   sc.executeJob(
     jobSpec = jobSpec,
     M = 4,
-    R = 1,
-    maxDuration = 1 hour
+    R = 1
   )
 }
-
-/*
-## Task #1: use implemented map-reduce framework for aggregation
-```ruby
-  MapReduce(
-    map: {
-      'data/clicks' => lambda { |clicks|
-        clicks.map { |click|
-          {
-            key: click['date'],
-            value: click
-          }
-        }
-      }
-    },
-    reduce: lambda { |key, values|
-      [
-        {
-          'date' => key,
-          'count' => values.count
-        }
-      ]
-    },
-    output: 'data/clicks_per_day'
-  )
-```
- */
